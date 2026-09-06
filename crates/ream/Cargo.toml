@@ -1,0 +1,17 @@
+[package]
+name = "ream"
+description = "A minimal BEAM programming language."
+
+version.workspace = true
+edition.workspace = true
+readme.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+colored = "3.1.1"
+log = { version = "0.4.34", features = ["kv"] }
+pound = "0.1.6"
+
+[lints]
+workspace = true

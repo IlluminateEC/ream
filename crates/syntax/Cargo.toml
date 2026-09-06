@@ -1,0 +1,16 @@
+[package]
+name = "ream-syntax"
+description = "The lexer, parser, and syntax tree for Ream."
+
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+emojis = "0.9.0"
+rowan = "0.17.0"
+unicode-segmentation = "1.13.3"
+
+[lints]
+workspace = true
