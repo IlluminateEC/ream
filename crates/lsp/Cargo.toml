@@ -1,7 +1,5 @@
 [package]
-name = "ream"
-description = "A minimal BEAM programming language."
-
+name = "ream-lsp"
 version.workspace = true
 edition.workspace = true
 readme.workspace = true
@@ -9,11 +7,10 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-colored = "3.1.1"
+gen-lsp-types = "0.11.0"
 log = { version = "0.4.34", features = ["kv"] }
-pound = "0.1.6"
-
-ream-lsp.workspace = true
+tokio = { version = "1.53.1", features = ["full", "rt"] }
+tower-lsp-server = "0.23.0"
 
 [lints]
 workspace = true

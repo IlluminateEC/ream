@@ -75,6 +75,6 @@ fn main() {
         Command::Add => todo!(),
         Command::Remove => todo!(),
         Command::Update => todo!(),
-        Command::Lsp => todo!(),
+        Command::Lsp => ream_lsp::start_lsp(),
     }
 }

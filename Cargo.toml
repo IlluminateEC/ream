@@ -12,6 +12,7 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 dashu-int = "0.6.0"
+ream-lsp = { path = "crates/lsp" }
 
 [workspace.lints.clippy]
 correctness = { level = "deny", priority = -1 }
@@ -40,6 +41,7 @@ cargo_common_metadata = "allow"
 enum_glob_use = "allow"
 must_use_candidate = "allow"
 pedantic = { level = "warn", priority = -1 }
+unused_async_trait_impl = "allow"
 
 cloned_instead_of_copied = "deny"
 implicit_clone = "deny"
