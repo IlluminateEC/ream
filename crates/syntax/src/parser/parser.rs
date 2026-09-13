@@ -123,7 +123,10 @@ impl<'source> Parser<'source> {
     }
 
     fn pattern(&self) -> ParserCombinator<'source, Self> {
-        just(SyntaxKind::IDENTIFIER).group_as(SyntaxKind::PATTERN)
+        just(SyntaxKind::IDENTIFIER)
+            .or(just(SyntaxKind::ATOM))
+            .or(just(SyntaxKind::INTEGER))
+            .group_as(SyntaxKind::PATTERN)
     }
 
     fn expression(&self) -> ParserCombinator<'source, Self> {
@@ -153,6 +156,23 @@ impl<'source> Parser<'source> {
                 .delimited(SyntaxKind::MAP_BRACE, SyntaxKind::RBRACE)
                 .group_as(SyntaxKind::MAP);
 
+            let match_clause = self
+                .pattern()
+                .then(just(SyntaxKind::IF).then(expression.clone()).optional())
+                .then(just(SyntaxKind::FAT_ARROW))
+                .then(expression.clone())
+                .group_as(SyntaxKind::MATCH_CLAUSE);
+
+            // 'match' expr '{' match_clause* '}'
+            let match_expression = just(SyntaxKind::MATCH)
+                .then(expression.clone())
+                .then(
+                    match_clause
+                        .repeated(SyntaxKind::RBRACE)
+                        .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE),
+                )
+                .group_as(SyntaxKind::MATCH);
+
             let expr_atom = just(SyntaxKind::IDENTIFIER)
                 .or(just(SyntaxKind::INTEGER))
                 .or(just(SyntaxKind::FRACTIONAL))
@@ -160,7 +180,8 @@ impl<'source> Parser<'source> {
                 .or(let_expression)
                 .or(tuple)
                 .or(map)
-                .or(expression.delimited(SyntaxKind::LPAREN, SyntaxKind::RPAREN));
+                .or(expression.delimited(SyntaxKind::LPAREN, SyntaxKind::RPAREN))
+                .or(match_expression);
 
             expr_atom.group_as(SyntaxKind::EXPRESSION)
         })
@@ -381,7 +402,7 @@ type User = #{
 }
 
 fn awa() {
-    let gwah: { :3 } = { :3 }
+    let gwah: { :3 } = { :3, }
 }
 ",
     );

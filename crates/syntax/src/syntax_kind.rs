@@ -51,6 +51,7 @@ pub enum SyntaxKind {
     AMPERSAND,
 
     // Keywords
+    IF,
     AS,
     FN,
     FOR,
@@ -74,6 +75,7 @@ pub enum SyntaxKind {
     FN_ARGS,
     TYPE_UNION,
     TYPE_INTERSECTION,
+    MATCH_CLAUSE,
 
     PATTERN,
     EXPRESSION,

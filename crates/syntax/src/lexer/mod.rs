@@ -67,6 +67,7 @@ impl<'source> Lexer<'source> {
         match &contents.to_lowercase() as &str {
             "as" => SyntaxKind::AS,
             "fn" => SyntaxKind::FN,
+            "if" => SyntaxKind::IF,
             "for" => SyntaxKind::FOR,
             "let" => SyntaxKind::LET,
             "impl" => SyntaxKind::IMPL,
