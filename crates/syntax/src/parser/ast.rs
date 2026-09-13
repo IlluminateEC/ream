@@ -93,10 +93,10 @@ pub enum BitStringEncoding {
 }
 
 pub enum StringEncoding {
-    ASCII, // Extended ASCII / ISO-8859-1 (0-255)
-    UTF8,
-    UTF16,
-    UTF32,
+    Ascii, // Extended ASCII / ISO-8859-1 (0-255)
+    Utf8,
+    Utf16,
+    Utf32,
 }
 
 pub enum Signedness {

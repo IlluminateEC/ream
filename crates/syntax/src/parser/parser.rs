@@ -19,10 +19,9 @@ struct Parser<'source> {
     tokens: Vec<Token<'source>>,
     builder: GreenNodeBuilder<'static>,
     errors: Vec<String>,
-    consumed_token_count: usize,
 }
 
-impl<'source> ParserState for Parser<'source> {
+impl ParserState for Parser<'_> {
     type TokenKind = SyntaxKind;
 
     fn peek_kind(&self) -> Option<Self::TokenKind> {
@@ -57,7 +56,6 @@ impl<'source> ParserState for Parser<'source> {
         };
 
         self.builder.token(token.kind.into(), token.contents);
-        self.consumed_token_count += 1;
     }
 
     fn expect(&mut self, kind: Self::TokenKind) -> ParseResult {
@@ -78,10 +76,6 @@ impl<'source> ParserState for Parser<'source> {
         } else {
             ParseResult::UnexpectedToken
         }
-    }
-
-    fn total_consumed_tokens(&self) -> usize {
-        self.consumed_token_count
     }
 }
 
@@ -270,6 +264,7 @@ impl<'source> Parser<'source> {
     }
 }
 
+#[cfg(test)]
 fn indentation(depth: usize) -> String {
     "  ".repeat(depth)
 }
@@ -361,7 +356,6 @@ fn parse(text: &str) -> Parse {
         tokens,
         builder: GreenNodeBuilder::new(),
         errors: Vec::new(),
-        consumed_token_count: 0,
     };
 
     parser.parse()

@@ -2,7 +2,6 @@ use std::{
     cell::OnceCell,
     ops::{FromResidual, Residual, Try},
     rc::Rc,
-    sync::Arc,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -61,11 +60,9 @@ pub trait ParserState {
     fn consume(&mut self);
     fn expect(&mut self, kind: Self::TokenKind) -> ParseResult;
     fn expect_immediate(&mut self, kind: Self::TokenKind) -> ParseResult;
-
-    fn total_consumed_tokens(&self) -> usize;
 }
 
-pub struct ParserCombinator<'a, PS: ParserState>
+pub struct ParserCombinator<'a, PS>
 where
     PS: ParserState,
 {
@@ -140,9 +137,9 @@ where
             handler: Rc::new(move |state| {
                 state.consume_trivia();
 
-                if self.is_applicable(&state) {
+                if self.is_applicable(state) {
                     (self.handler)(state)
-                } else if other.is_applicable(&state) {
+                } else if other.is_applicable(state) {
                     (other.handler)(state)
                 } else if state.is_at_eof() {
                     ParseResult::Eof
@@ -304,7 +301,7 @@ where
         let inner = builder(proxy);
         let expected_prefixes = inner.expected_prefixes.clone();
 
-        cell.set(inner).ok().expect("Cell initialization failed");
+        cell.set(inner).expect("Cell initialization failed");
 
         Self {
             expected_prefixes,
