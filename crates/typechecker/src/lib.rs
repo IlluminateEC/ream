@@ -2,31 +2,44 @@ use std::marker::PhantomData;
 
 use array_list::ArrayList;
 
-pub trait ArenaId: Clone + Copy {
+pub trait ArenaId: Clone + Copy + std::fmt::Debug {
     fn from_u32(id: u32) -> Self;
     fn as_u32(self) -> u32;
 }
 
-pub struct Arena<Item, Id: ArenaId, const Size: usize = 64> {
-    nodes: ArrayList<Item, Size>,
+pub struct Arena<Item, Id: ArenaId, const SIZE: usize = 64> {
+    nodes: ArrayList<Item, SIZE>,
     _id: PhantomData<Id>,
 }
 
 impl<Item, Id: ArenaId> Arena<Item, Id> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             nodes: ArrayList::new(),
             _id: PhantomData,
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn add(&mut self, item: Item) -> Id {
         self.nodes.push_back(item);
         Id::from_u32(self.nodes.len() as u32)
     }
 
+    /// # Panics
+    /// An attempt to get an element that does not exist
+    /// will result in a panic
+    #[allow(clippy::panic)]
     pub fn get(&self, id: Id) -> &Item {
-        self.nodes.get(id.as_u32() as usize).unwrap()
+        self.nodes
+            .get(id.as_u32() as usize)
+            .unwrap_or_else(|| panic!("Element with {id:?} does not exist"))
+    }
+}
+
+impl<Item, Id: ArenaId> Default for Arena<Item, Id> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 /*
@@ -51,7 +64,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn is_never(&self, arena: Arena<Type, TypeId>) -> bool {
+    pub fn is_never(&self, arena: &Arena<Self, TypeId>) -> bool {
         // match self {
         //     Self::Union([]) => true,
         //     Self::Intersection(nodes) => nodes
@@ -72,7 +85,8 @@ impl Type {
     }
 
     // (number) | (int) -> Union[number, int]
-    pub fn unify(&self, other: &Self) -> Type {
+    #[must_use]
+    pub fn unify(&self, other: &Self) -> Self {
         todo!()
     }
 }
@@ -105,7 +119,7 @@ pub enum Node {
     },
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct NodeId(u32);
 
 impl ArenaId for NodeId {
@@ -118,7 +132,7 @@ impl ArenaId for NodeId {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TypeId(u32);
 
 impl ArenaId for TypeId {
@@ -137,10 +151,16 @@ pub struct TypeEngine {
 }
 
 impl TypeEngine {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             types: Arena::new(),
             nodes: Arena::new(),
         }
+    }
+}
+
+impl Default for TypeEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }
