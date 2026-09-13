@@ -139,6 +139,11 @@ impl<'source> Parser<'source> {
                 .delimited(SyntaxKind::MAP_BRACE, SyntaxKind::RBRACE)
                 .group_as(SyntaxKind::MAP);
 
+            let tuple = r#type
+                .clone()
+                .repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RBRACE)
+                .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE);
+
             let generic_application = ParserCombinator::just(SyntaxKind::IDENTIFIER).then(
                 r#type
                     .clone()
@@ -151,7 +156,8 @@ impl<'source> Parser<'source> {
 
             let type_atom = generic_application
                 .or(ParserCombinator::just(SyntaxKind::ATOM))
-                .or(map);
+                .or(map)
+                .or(tuple);
 
             let type_intersection = ParserCombinator::recursive(|type_intersection| {
                 type_atom
