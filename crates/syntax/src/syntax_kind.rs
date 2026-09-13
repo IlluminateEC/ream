@@ -65,6 +65,8 @@ pub enum SyntaxKind {
     OPERATION,
     MAP,
     MAP_PAIR,
+    TUPLE,
+    TUPLE_ITEM,
     GENERIC_INTRODUCTION,
     GENERIC_ARGS,
     GENERIC_ARG,

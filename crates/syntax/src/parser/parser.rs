@@ -141,8 +141,10 @@ impl<'source> Parser<'source> {
 
             let tuple = r#type
                 .clone()
+                .group_as(SyntaxKind::TUPLE_ITEM)
                 .repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RBRACE)
-                .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE);
+                .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE)
+                .group_as(SyntaxKind::TUPLE);
 
             let generic_application = ParserCombinator::just(SyntaxKind::IDENTIFIER).then(
                 r#type
