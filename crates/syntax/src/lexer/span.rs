@@ -10,7 +10,7 @@ pub struct Span<'source> {
     end: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Token<'source> {
     pub kind: SyntaxKind,
     pub contents: &'source str,
@@ -23,6 +23,19 @@ impl Token<'_> {
 
     pub const fn is_error(&self) -> bool {
         self.kind.is_error()
+    }
+
+    pub fn is_kind(&self, kind: SyntaxKind) -> bool {
+        self.kind == kind
+    }
+
+    pub fn has_content(&self, content: &str) -> bool {
+        self.contents == content
+    }
+
+    #[must_use]
+    pub const fn with_kind(self, kind: SyntaxKind) -> Self {
+        Self { kind, ..self }
     }
 }
 
@@ -57,8 +70,8 @@ impl<'source> Span<'source> {
         self.body.get(self.end..self.end + sequence.len()) == Some(sequence)
     }
 
-    pub const fn bump_by(&mut self, length: usize) {
-        self.end += length;
+    pub const fn bump_by(&mut self, length: isize) {
+        self.end = self.end.strict_add_signed(length);
     }
 
     pub const fn bump_for_string(&mut self, string: &str) {
@@ -88,7 +101,7 @@ impl<'source> Span<'source> {
     pub fn take_while_and_require_advancement(
         &mut self,
         predicate: impl Fn(char) -> bool,
-    ) -> Option<&mut Self> {
+    ) -> Option<Self> {
         let original_end = self.end;
 
         self.take_while(predicate);
@@ -96,7 +109,7 @@ impl<'source> Span<'source> {
         if original_end == self.end {
             None
         } else {
-            Some(self)
+            Some(*self)
         }
     }
 
@@ -108,15 +121,16 @@ impl<'source> Span<'source> {
         &self.body[self.start..self.end]
     }
 
-    pub fn make_token(&mut self, kind: SyntaxKind) -> (SyntaxKind, &'source str) {
-        let result = (kind, self.as_str());
-
-        self.yank();
-
-        result
-    }
-
     pub const fn is_at_end(&self) -> bool {
         self.end >= self.body.len()
+    }
+
+    #[must_use]
+    pub const fn to(self, to: Self) -> Self {
+        Self {
+            body: self.body,
+            start: self.start,
+            end: to.end,
+        }
     }
 }

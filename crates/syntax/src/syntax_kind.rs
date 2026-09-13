@@ -2,51 +2,92 @@
 #[allow(non_camel_case_types)]
 #[repr(u16)]
 pub enum SyntaxKind {
+    /// Emitted when the lexer is unable to handle a grapheme
     BAD_TOKEN = 0,
 
     // Trivia
     WHITESPACE,
+    /// `// a comment that is ignored`
     COMMENT,
+    /// `/// documentation for an item`
     DOC_COMMENT,
+    /// `//! documentation for the parent item`
+    SUPER_DOC_COMMENT,
 
     IDENTIFIER,
     ATOM,
+    INTEGER,
+    FRACTIONAL,
+    BOOLEAN,
     ERROR,
 
+    // Punctuation
     COLON,
+    DOT,
+    COMMA,
+    AT,
+    ARROW,
+    FAT_ARROW,
+    // HASH,
+    EQUAL,
 
-    ADD,
-    SUB,
-    MUL,
-    DIV,
+    // Parenthesis
+    LBRACE,
+    RBRACE,
+    LPAREN,
+    RPAREN,
+    LBRACKET,
+    RBRACKET,
+    MAP_BRACE,
+
+    // Operators
+    PLUS,
+    HYPHEN,
+    ASTERISK,
+    SLASH,
+    PERCENT,
+    EXCLAMATION_POINT,
+    PIPE,
+    AMPERSAND,
+
+    // Keywords
+    AS,
+    FN,
+    FOR,
+    LET,
+    IMPL,
+    TYPE,
+    MATCH,
+    TRAIT,
+    IMPORT,
 
     // Derived Nodes
-    NUMBER,
     OPERATION,
+    MAP,
+    MAP_PAIR,
+    GENERIC_INTRODUCTION,
+    GENERIC_ARGS,
+    GENERIC_ARG,
+    FN_ARG,
+    FN_ARGS,
+    TYPE_UNION,
+    TYPE_INTERSECTION,
     ROOT,
 }
 
+// TODO: <<, >>, <, <=, >, >=, ==, !=
+
 impl SyntaxKind {
     pub const fn is_trivia(&self) -> bool {
-        match self {
-            Self::WHITESPACE | Self::COMMENT | Self::DOC_COMMENT => true,
-            Self::IDENTIFIER
-            | Self::ATOM
-            | Self::COLON
-            | Self::ADD
-            | Self::SUB
-            | Self::MUL
-            | Self::DIV
-            | Self::NUMBER
-            | Self::BAD_TOKEN
-            | Self::ERROR
-            | Self::OPERATION
-            | Self::ROOT => false,
-        }
+        use SyntaxKind::*;
+
+        matches!(self, WHITESPACE | COMMENT | DOC_COMMENT | SUPER_DOC_COMMENT)
     }
 
     pub const fn is_error(self) -> bool {
-        matches!(self, Self::BAD_TOKEN | Self::ERROR)
+        use SyntaxKind::*;
+
+        matches!(self, BAD_TOKEN | ERROR)
     }
 }
 

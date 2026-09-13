@@ -1,0 +1,49 @@
+import std/io
+import std/string
+import std/async as async
+
+type Activity
+  = :online
+  | :idle
+  | :offline
+
+type Option[T]
+  = { :some, T }
+  | { :none }
+
+type User = #{
+  id: Int,
+  name: String,
+  status: Activity
+}
+
+trait Display {
+  fn format(self: Self) -> String
+}
+
+fn process_user(user: User, active_only: Bool) -> Option[String] {
+  let is_valid = {
+    let checked = user.name.trim()
+
+    checked.length() > 0
+  }
+
+  let single_tuple = { user, }
+  let pair_tuple = { user.id, user.name }
+
+  match user.status {
+    :online if is_valid -> {
+      let formatted = user.name.uppercase()
+
+      { :some, val: formatted }
+    }
+
+    :idle -> {
+      io.println("User is away")
+
+      { :none }
+    }
+
+    _ -> { :none }
+  }
+}

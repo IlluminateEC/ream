@@ -1,0 +1,12 @@
+[package]
+name = "core-erlang"
+version.workspace = true
+edition.workspace = true
+description = "An abstract syntax tree and code generator for Core Erlang."
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
