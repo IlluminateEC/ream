@@ -7,6 +7,7 @@ use crate::parser::combinator::ParseResult;
 use crate::parser::combinator::ParserCombinator;
 use crate::parser::combinator::ParserState;
 use crate::syntax_kind::SyntaxKind;
+use crate::syntax_kind::SyntaxKind::IDENTIFIER;
 
 #[derive(Debug, Clone)]
 struct Parse {
@@ -79,6 +80,10 @@ impl ParserState for Parser<'_> {
     }
 }
 
+fn just<'source>(kind: SyntaxKind) -> ParserCombinator<'source, Parser<'source>> {
+    ParserCombinator::just(kind)
+}
+
 impl<'source> Parser<'source> {
     fn parse(mut self) -> Parse {
         self.builder.start_node(SyntaxKind::ROOT.into());
@@ -117,14 +122,54 @@ impl<'source> Parser<'source> {
         self.tokens.last().copied()
     }
 
+    fn pattern(&self) -> ParserCombinator<'source, Self> {
+        just(SyntaxKind::IDENTIFIER).group_as(SyntaxKind::PATTERN)
+    }
+
     fn expression(&self) -> ParserCombinator<'source, Self> {
-        ParserCombinator::just(SyntaxKind::IDENTIFIER)
+        ParserCombinator::recursive(|expression| {
+            let let_expression = just(SyntaxKind::LET)
+                .then(self.pattern())
+                .then(just(SyntaxKind::COLON).then(self.r#type()).optional())
+                .then(just(SyntaxKind::EQUAL))
+                .then(expression.clone())
+                .group_as(SyntaxKind::LET);
+
+            let tuple = expression
+                .clone()
+                .group_as(SyntaxKind::TUPLE_ITEM)
+                .repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RBRACE)
+                .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE)
+                .group_as(SyntaxKind::TUPLE);
+
+            let map_pair = just(SyntaxKind::IDENTIFIER)
+                .or(expression.clone())
+                .then(just(SyntaxKind::COLON))
+                .then(expression.clone())
+                .group_as(SyntaxKind::MAP_PAIR);
+
+            let map = map_pair
+                .repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RBRACE)
+                .delimited(SyntaxKind::MAP_BRACE, SyntaxKind::RBRACE)
+                .group_as(SyntaxKind::MAP);
+
+            let expr_atom = just(SyntaxKind::IDENTIFIER)
+                .or(just(SyntaxKind::INTEGER))
+                .or(just(SyntaxKind::FRACTIONAL))
+                .or(just(SyntaxKind::ATOM))
+                .or(let_expression)
+                .or(tuple)
+                .or(map)
+                .or(expression.delimited(SyntaxKind::LPAREN, SyntaxKind::RPAREN));
+
+            expr_atom.group_as(SyntaxKind::EXPRESSION)
+        })
     }
 
     fn r#type(&self) -> ParserCombinator<'source, Self> {
         ParserCombinator::recursive(|r#type| {
-            let map_pair = ParserCombinator::just(SyntaxKind::IDENTIFIER)
-                .then(ParserCombinator::just(SyntaxKind::COLON))
+            let map_pair = just(SyntaxKind::IDENTIFIER)
+                .then(just(SyntaxKind::COLON))
                 .then(r#type.clone())
                 .group_as(SyntaxKind::MAP_PAIR);
 
@@ -140,7 +185,7 @@ impl<'source> Parser<'source> {
                 .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE)
                 .group_as(SyntaxKind::TUPLE);
 
-            let generic_application = ParserCombinator::just(SyntaxKind::IDENTIFIER).then(
+            let generic_application = just(SyntaxKind::IDENTIFIER).then(
                 r#type
                     .clone()
                     .group_as(SyntaxKind::GENERIC_ARG)
@@ -151,7 +196,7 @@ impl<'source> Parser<'source> {
             );
 
             let type_atom = generic_application
-                .or(ParserCombinator::just(SyntaxKind::ATOM))
+                .or(just(SyntaxKind::ATOM))
                 .or(map)
                 .or(tuple);
 
@@ -159,7 +204,7 @@ impl<'source> Parser<'source> {
                 type_atom
                     .clone()
                     .then(
-                        ParserCombinator::just(SyntaxKind::AMPERSAND)
+                        just(SyntaxKind::AMPERSAND)
                             .then(type_intersection)
                             .optional(),
                     )
@@ -169,11 +214,7 @@ impl<'source> Parser<'source> {
             let type_union = ParserCombinator::recursive(|type_union| {
                 type_intersection
                     .clone()
-                    .then(
-                        ParserCombinator::just(SyntaxKind::PIPE)
-                            .then(type_union)
-                            .optional(),
-                    )
+                    .then(just(SyntaxKind::PIPE).then(type_union).optional())
                     .group_as(SyntaxKind::TYPE_UNION)
             });
 
@@ -199,8 +240,8 @@ impl<'source> Parser<'source> {
                 .repeated_with_separator(SyntaxKind::SLASH),
         )
         .then(
-            ParserCombinator::just(SyntaxKind::AS)
-                .then(ParserCombinator::just(SyntaxKind::IDENTIFIER))
+            just(SyntaxKind::AS)
+                .then(just(SyntaxKind::IDENTIFIER))
                 .optional(),
         )
         .group_as(SyntaxKind::IMPORT)
@@ -227,14 +268,14 @@ impl<'source> Parser<'source> {
             this.expect(SyntaxKind::IDENTIFIER)
         })
         .then(self.generic_argument_introduction().optional())
-        .then(ParserCombinator::just(SyntaxKind::EQUAL))
+        .then(just(SyntaxKind::EQUAL))
         .then(self.r#type())
         .group_as(SyntaxKind::TYPE)
     }
 
     fn function_definition(&self) -> ParserCombinator<'source, Self> {
-        let args = ParserCombinator::just(SyntaxKind::IDENTIFIER)
-            .then(ParserCombinator::just(SyntaxKind::COLON))
+        let args = just(SyntaxKind::IDENTIFIER)
+            .then(just(SyntaxKind::COLON))
             .then(self.r#type())
             .group_as(SyntaxKind::FN_ARG);
 
@@ -245,12 +286,15 @@ impl<'source> Parser<'source> {
         .then(self.generic_argument_introduction().optional())
         .then(
             args.repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RPAREN)
+                .optional()
                 .group_as(SyntaxKind::FN_ARGS)
                 .delimited(SyntaxKind::LPAREN, SyntaxKind::RPAREN),
         )
+        .then(just(SyntaxKind::ARROW).then(self.r#type()).optional())
         .then(
-            ParserCombinator::just(SyntaxKind::ARROW)
-                .then(self.r#type())
+            self.expression()
+                .repeated(SyntaxKind::RBRACE)
+                .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE)
                 .optional(),
         )
         .group_as(SyntaxKind::FN)
@@ -334,6 +378,10 @@ type User = #{
     name: String,
     status: Status,
     display_name: Option[String]
+}
+
+fn awa() {
+    let gwah: { :3 } = { :3 }
 }
 ",
     );

@@ -74,6 +74,9 @@ pub enum SyntaxKind {
     FN_ARGS,
     TYPE_UNION,
     TYPE_INTERSECTION,
+
+    PATTERN,
+    EXPRESSION,
     ROOT,
 }
 
