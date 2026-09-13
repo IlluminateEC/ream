@@ -42,19 +42,42 @@ impl<'source> ParserState for Parser<'source> {
     }
 
     fn consume_trivia(&mut self) {
-        self.consume_trivia();
+        while let Some(token) = self.peek()
+            && token.is_trivia()
+        {
+            self.consume();
+        }
     }
 
+    /// Advance one token, adding it to the current branch of the tree builder.
+    #[allow(clippy::arithmetic_side_effects)]
     fn consume(&mut self) {
-        self.skip();
+        let Some(token) = self.tokens.pop() else {
+            return;
+        };
+
+        self.builder.token(token.kind.into(), token.contents);
+        self.consumed_token_count += 1;
     }
 
     fn expect(&mut self, kind: Self::TokenKind) -> ParseResult {
-        self.expect(kind)
+        self.consume_trivia();
+
+        self.expect_immediate(kind)
     }
 
     fn expect_immediate(&mut self, kind: Self::TokenKind) -> ParseResult {
-        self.expect_immediate(kind)
+        if let Some(token) = self.peek()
+            && token.kind == kind
+        {
+            self.consume();
+
+            ParseResult::Ok
+        } else if self.peek().is_none() {
+            ParseResult::Eof
+        } else {
+            ParseResult::UnexpectedToken
+        }
     }
 
     fn total_consumed_tokens(&self) -> usize {
@@ -68,7 +91,7 @@ impl<'source> Parser<'source> {
 
         // parse top-level statments
         loop {
-            match self.definition() {
+            match self.definition()(&mut self) {
                 ParseResult::Eof => break,
                 ParseResult::UnexpectedToken => {
                     self.builder.start_node(SyntaxKind::ERROR.into());
@@ -79,7 +102,7 @@ impl<'source> Parser<'source> {
                             |token| format!("{token:?}")
                         )
                     ));
-                    self.skip();
+                    self.consume();
                     self.builder.finish_node();
                 }
                 ParseResult::Ok => (),
@@ -95,328 +118,16 @@ impl<'source> Parser<'source> {
         }
     }
 
-    /// Advance one token, adding it to the current branch of the tree builder.
-    #[allow(clippy::arithmetic_side_effects)]
-    fn skip(&mut self) {
-        let Some(token) = self.tokens.pop() else {
-            return;
-        };
-
-        self.builder.token(token.kind.into(), token.contents);
-        self.consumed_token_count += 1;
-    }
-
     /// Peek at the first unprocessed token
     fn peek(&self) -> Option<Token<'source>> {
         self.tokens.last().copied()
     }
 
-    fn consume_trivia(&mut self) {
-        while let Some(token) = self.peek()
-            && token.is_trivia()
-        {
-            self.skip();
-        }
-    }
-
-    fn expect_immediate(&mut self, expected_token: SyntaxKind) -> ParseResult {
-        if let Some(token) = self.peek()
-            && token.kind == expected_token
-        {
-            self.skip();
-
-            ParseResult::Ok
-        } else if self.peek().is_none() {
-            ParseResult::Eof
-        } else {
-            ParseResult::UnexpectedToken
-        }
-    }
-
-    fn expect(&mut self, expected_token: SyntaxKind) -> ParseResult {
-        self.consume_trivia();
-
-        self.expect_immediate(expected_token)
-    }
-
-    fn accept_immediate(&mut self, kind: SyntaxKind) -> bool {
-        if let Some(token) = self.peek()
-            && token.kind == kind
-        {
-            self.skip();
-
-            true
-        } else {
-            false
-        }
-    }
-
-    fn accept(&mut self, kind: SyntaxKind) -> bool {
-        self.consume_trivia();
-
-        self.accept_immediate(kind)
-    }
-
-    fn parse_as(
-        &mut self,
-        kind: SyntaxKind,
-        parser: &dyn Fn(&mut Self) -> ParseResult,
-    ) -> ParseResult {
-        self.builder.start_node(kind.into());
-
-        let ret = parser(self);
-
-        self.builder.finish_node();
-
-        ret
-    }
-
-    /// runs the predicate when the token is present, but returns Ok if it isn't
-    /// Consumes the optional token automatically
-    fn optional_immediate(
-        &mut self,
-        optional_token: SyntaxKind,
-        predicate: &dyn Fn(&mut Self) -> ParseResult,
-    ) -> Option<ParseResult> {
-        if let Some(token) = self.peek()
-            && token.is_kind(optional_token)
-        {
-            self.skip();
-            Some(predicate(self))
-        } else {
-            None
-        }
-    }
-
-    fn optional(
-        &mut self,
-        optional_token: SyntaxKind,
-        predicate: &dyn Fn(&mut Self) -> ParseResult,
-    ) -> Option<ParseResult> {
-        self.consume_trivia();
-
-        self.optional_immediate(optional_token, predicate)
-    }
-
-    /// Repeats the predicate while the result is okay & Some, breaks on None
-    fn repeated(&mut self, predicate: &dyn Fn(&mut Self) -> Option<ParseResult>) -> ParseResult {
-        while let Some(result) = predicate(self) {
-            result?;
-        }
-
-        ParseResult::Ok
-    }
-
-    fn repeated_with_separator(
-        &mut self,
-        separator: SyntaxKind,
-        end: SyntaxKind,
-        predicate: &dyn Fn(&mut Self) -> ParseResult,
-    ) -> ParseResult {
-        predicate(self)?;
-
-        self.consume_trivia();
-        while let Some(token) = self.peek()
-            && token.is_kind(separator)
-        {
-            self.skip();
-            self.consume_trivia();
-
-            if self.accept(end) {
-                ParseResult::Ok?;
-            }
-
-            predicate(self)?;
-            self.consume_trivia();
-        }
-
-        self.optional(separator, &|this| {
-            this.skip();
-            ParseResult::Ok
-        })
-        .into()
-    }
-
-    fn type_internal(&mut self) -> ParseResult {
-        self.consume_trivia();
-
-        if let Some(token) = self.peek() {
-            match token.kind {
-                SyntaxKind::IDENTIFIER => {
-                    self.skip();
-
-                    ParseResult::from(self.optional(SyntaxKind::LBRACKET, &|this| {
-                        this.repeated_with_separator(
-                            SyntaxKind::COMMA,
-                            SyntaxKind::RBRACKET,
-                            &Self::r#type,
-                        )?;
-                        this.expect(SyntaxKind::RBRACKET)
-                    }))
-                }
-
-                SyntaxKind::ATOM => {
-                    self.skip();
-                    ParseResult::Ok
-                }
-
-                // SyntaxKind::HASH => self.parse_as(SyntaxKind::MAP, &|this| {
-                //     this.skip();
-
-                //     this.expect_immediate(SyntaxKind::LBRACE)?;
-
-                //     this.repeated_with_separator(SyntaxKind::COMMA, SyntaxKind::RBRACE, &|this| {
-                //         this.consume_trivia();
-                //         this.parse_as(SyntaxKind::MAP_PAIR, &|this| {
-                //             this.expect(SyntaxKind::IDENTIFIER)?;
-                //             this.expect(SyntaxKind::COLON)?;
-                //             this.r#type()
-                //         })
-                //     })?;
-
-                //     this.expect(SyntaxKind::RBRACE)
-                // }),
-                _ => ParseResult::UnexpectedToken,
-            }
-        } else {
-            ParseResult::Eof
-        }
-    }
-
-    fn r#type(&mut self) -> ParseResult {
-        self.type_internal()?;
-        self.consume_trivia();
-
-        while let Some(token) = self.peek()
-            && (token.is_kind(SyntaxKind::PIPE) || token.is_kind(SyntaxKind::AMPERSAND))
-        {
-            self.skip();
-            self.type_internal()?;
-            self.consume_trivia();
-        }
-
-        ParseResult::Ok
-    }
-
-    fn import(&mut self) -> ParseResult {
-        self.expect(SyntaxKind::IMPORT)?;
-        self.expect(SyntaxKind::IDENTIFIER)?;
-
-        self.repeated(&|this| {
-            this.optional_immediate(SyntaxKind::SLASH, &|this| -> ParseResult {
-                this.expect(SyntaxKind::IDENTIFIER)?;
-                ParseResult::Ok
-            })
-        })?;
-
-        self.optional(SyntaxKind::AS, &|this| this.expect(SyntaxKind::IDENTIFIER))
-            .into()
-    }
-
-    fn type_definition(&mut self) -> ParseResult {
-        self.expect(SyntaxKind::TYPE)?;
-        self.expect(SyntaxKind::IDENTIFIER)?;
-
-        ParseResult::from(
-            self.optional(SyntaxKind::LBRACKET, &Self::generic_parameter_introduction),
-        )?;
-
-        self.expect(SyntaxKind::EQUAL)?;
-        self.r#type()
-    }
-
-    fn pattern(&mut self) -> ParseResult {
-        // TODO: the rest
-
-        self.expect(SyntaxKind::IDENTIFIER)
-    }
-
-    fn expression(&mut self) -> ParseResult {
-        // TODO: the rest
-
-        self.expect(SyntaxKind::IDENTIFIER)
-    }
-
-    fn generic_parameter_introduction(&mut self) -> ParseResult {
-        self.repeated_with_separator(SyntaxKind::COMMA, SyntaxKind::RBRACKET, &|this| {
-            this.expect(SyntaxKind::IDENTIFIER)?;
-            this.optional(SyntaxKind::COLON, &Self::r#type).into()
-        })?;
-
-        self.expect(SyntaxKind::RBRACKET)
-    }
-
-    fn function_definition(&mut self) -> ParseResult {
-        self.expect(SyntaxKind::FN)?;
-        self.expect(SyntaxKind::IDENTIFIER)?;
-
-        ParseResult::from(
-            self.optional(SyntaxKind::LBRACKET, &Self::generic_parameter_introduction),
-        )?;
-
-        self.expect(SyntaxKind::LPAREN)?;
-
-        self.repeated_with_separator(SyntaxKind::COMMA, SyntaxKind::RPAREN, &|this| {
-            // TODO: potentially allow non-identifier patterns as arguments?
-            this.expect(SyntaxKind::IDENTIFIER)?;
-            this.expect(SyntaxKind::COLON)?;
-            this.r#type()
-        })?;
-
-        self.expect(SyntaxKind::RPAREN)?;
-
-        ParseResult::from(self.optional(SyntaxKind::ARROW, &|this| this.r#type()))?;
-
-        // bodies are optional in traits and externs
-        self.optional(SyntaxKind::LBRACE, &|this| {
-            this.repeated(&|this| Some(this.expression()))?;
-
-            this.expect(SyntaxKind::RBRACE)
-        })
-        .into()
-    }
-
-    fn trait_definition(&mut self) -> ParseResult {
-        self.expect(SyntaxKind::TRAIT)?;
-        self.expect(SyntaxKind::IDENTIFIER)?;
-
-        ParseResult::from(
-            self.optional(SyntaxKind::LBRACKET, &Self::generic_parameter_introduction),
-        )?;
-
-        self.expect(SyntaxKind::LBRACE)?;
-
-        // TODO: narrow definition here to exclude traits and imports
-        self.repeated(&|this| Some(this.definition()))?;
-
-        self.expect(SyntaxKind::RBRACE)
-    }
-
-    fn definition(&mut self) -> ParseResult {
-        // self.consume_trivia();
-
-        // if let Some(token) = self.peek() {
-        //     match token.kind {
-        //         SyntaxKind::IMPORT => self.parse_as(SyntaxKind::IMPORT, &Self::import),
-        //         SyntaxKind::TRAIT => self.parse_as(SyntaxKind::TRAIT, &Self::trait_definition),
-        //         SyntaxKind::TYPE => self.parse_as(SyntaxKind::TYPE, &Self::type_definition),
-        //         SyntaxKind::FN => self.parse_as(SyntaxKind::FN, &Self::function_definition),
-        //         _ => ParseResult::UnexpectedToken,
-        //     }
-        // } else {
-        //     ParseResult::Eof
-        // }
-
-        let a = self.definition_composed();
-
-        a(self)
-    }
-
-    fn expression_composed(&self) -> ParserCombinator<'source, Self> {
+    fn expression(&self) -> ParserCombinator<'source, Self> {
         ParserCombinator::just(SyntaxKind::IDENTIFIER)
     }
 
-    fn type_composed(&self) -> ParserCombinator<'source, Self> {
+    fn r#type(&self) -> ParserCombinator<'source, Self> {
         ParserCombinator::recursive(|r#type| {
             let map_pair = ParserCombinator::just(SyntaxKind::IDENTIFIER)
                 .then(ParserCombinator::just(SyntaxKind::COLON))
@@ -468,14 +179,14 @@ impl<'source> Parser<'source> {
         })
     }
 
-    fn generic_args_composed(&self) -> ParserCombinator<'source, Self> {
-        self.r#type_composed()
+    fn generic_argument_introduction(&self) -> ParserCombinator<'source, Self> {
+        self.r#type()
             .repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RBRACKET)
             .delimited(SyntaxKind::LBRACKET, SyntaxKind::RBRACKET)
             .group_as(SyntaxKind::GENERIC_INTRODUCTION)
     }
 
-    fn import_composed(&self) -> ParserCombinator<'source, Self> {
+    fn import_definition(&self) -> ParserCombinator<'source, Self> {
         ParserCombinator::when(SyntaxKind::IMPORT, |this: &mut Self| {
             this.expect(SyntaxKind::IMPORT)?;
             this.consume_trivia();
@@ -493,43 +204,43 @@ impl<'source> Parser<'source> {
         .group_as(SyntaxKind::IMPORT)
     }
 
-    fn trait_composed(&self) -> ParserCombinator<'source, Self> {
+    fn trait_definition(&self) -> ParserCombinator<'source, Self> {
         ParserCombinator::when(SyntaxKind::TRAIT, |this: &mut Self| {
             this.expect(SyntaxKind::TRAIT)?;
             this.expect(SyntaxKind::IDENTIFIER)
         })
-        .then(self.generic_args_composed().optional())
+        .then(self.generic_argument_introduction().optional())
         .then(
-            self.type_definition_composed()
-                .or(self.function_definition_composed())
+            self.type_definition()
+                .or(self.function_definition())
                 .repeated(SyntaxKind::RBRACE)
                 .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE),
         )
         .group_as(SyntaxKind::TRAIT)
     }
 
-    fn type_definition_composed(&self) -> ParserCombinator<'source, Self> {
+    fn type_definition(&self) -> ParserCombinator<'source, Self> {
         ParserCombinator::when(SyntaxKind::TYPE, |this: &mut Self| {
             this.expect(SyntaxKind::TYPE)?;
             this.expect(SyntaxKind::IDENTIFIER)
         })
-        .then(self.generic_args_composed().optional())
+        .then(self.generic_argument_introduction().optional())
         .then(ParserCombinator::just(SyntaxKind::EQUAL))
-        .then(self.type_composed())
+        .then(self.r#type())
         .group_as(SyntaxKind::TYPE)
     }
 
-    fn function_definition_composed(&self) -> ParserCombinator<'source, Self> {
+    fn function_definition(&self) -> ParserCombinator<'source, Self> {
         let args = ParserCombinator::just(SyntaxKind::IDENTIFIER)
             .then(ParserCombinator::just(SyntaxKind::COLON))
-            .then(self.type_composed())
+            .then(self.r#type())
             .group_as(SyntaxKind::FN_ARG);
 
         ParserCombinator::when(SyntaxKind::FN, |this: &mut Self| {
             this.expect(SyntaxKind::FN)?;
             this.expect(SyntaxKind::IDENTIFIER)
         })
-        .then(self.generic_args_composed().optional())
+        .then(self.generic_argument_introduction().optional())
         .then(
             args.repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RPAREN)
                 .group_as(SyntaxKind::FN_ARGS)
@@ -537,17 +248,17 @@ impl<'source> Parser<'source> {
         )
         .then(
             ParserCombinator::just(SyntaxKind::ARROW)
-                .then(self.type_composed())
+                .then(self.r#type())
                 .optional(),
         )
         .group_as(SyntaxKind::FN)
     }
 
-    fn definition_composed(&self) -> ParserCombinator<'source, Self> {
-        self.import_composed()
-            .or(self.trait_composed())
-            .or(self.type_definition_composed())
-            .or(self.function_definition_composed())
+    fn definition(&self) -> ParserCombinator<'source, Self> {
+        self.import_definition()
+            .or(self.trait_definition())
+            .or(self.type_definition())
+            .or(self.function_definition())
     }
 }
 
@@ -587,6 +298,42 @@ fn parse_import() {
 import std/fs as fs",
     );
 
+    print_tree(&parse.green_node);
+
+    assert_eq!(parse.errors, Vec::<&str>::new());
+
+    assert_eq!(
+        parse.green_node,
+        GreenNode::new(SyntaxKind::ROOT.into(), vec![])
+    );
+}
+
+#[test]
+fn parse_more() {
+    let parse = parse(
+        "import std/io
+import std/string
+import std/async as async
+
+
+type Status
+    = :online
+    | :idle
+    | :offline
+
+type never = Never
+
+type Option[T]
+    = { :some, T }
+    | { :none }
+
+type User = #{
+    name: String,
+    status: Status,
+    display_name: Option[String]
+}
+",
+    );
     print_tree(&parse.green_node);
 
     assert_eq!(parse.errors, Vec::<&str>::new());
