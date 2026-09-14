@@ -140,7 +140,10 @@ impl<'source> Parser<'source> {
             let tuple = expression
                 .clone()
                 .group_as(SyntaxKind::TUPLE_ITEM)
-                .repeated_with_trailing_separator(SyntaxKind::COMMA, SyntaxKind::RBRACE)
+                .repeated_with_mandatory_trailing_separator_for_one_item(
+                    SyntaxKind::COMMA,
+                    SyntaxKind::RBRACE,
+                )
                 .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE)
                 .group_as(SyntaxKind::TUPLE);
 

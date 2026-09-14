@@ -169,7 +169,9 @@ where
                 {
                     state.consume();
 
-                    if kind == end {
+                    state.consume_trivia();
+
+                    if state.peek_kind() == Some(end) {
                         break;
                     }
 
@@ -181,6 +183,50 @@ where
                 }
 
                 ParseResult::Ok
+            }),
+        }
+    }
+
+    pub fn repeated_with_mandatory_trailing_separator_for_one_item(
+        self,
+        separator: PS::TokenKind,
+        end: PS::TokenKind,
+    ) -> Self {
+        Self {
+            expected_prefixes: self.expected_prefixes,
+            handler: Rc::new(move |state| {
+                state.consume_trivia();
+
+                if let Some(kind) = state.peek_kind()
+                    && kind == end
+                {
+                    return ParseResult::Ok;
+                }
+
+                (self.handler)(state)?;
+                state.expect(separator)?;
+
+                state.consume_trivia();
+
+                if let Some(kind) = state.peek_kind()
+                    && kind == end
+                {
+                    return ParseResult::Ok;
+                }
+
+                loop {
+                    (self.handler)(state)?;
+
+                    state.consume_trivia();
+
+                    match state.peek_kind() {
+                        Some(kind) if kind == end => return ParseResult::Ok,
+                        None => return ParseResult::Eof,
+                        _ => (),
+                    }
+
+                    state.expect(separator)?;
+                }
             }),
         }
     }
