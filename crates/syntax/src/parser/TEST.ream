@@ -23,27 +23,27 @@ trait Display {
 
 fn process_user(user: User, active_only: Bool) -> Option[String] {
   let is_valid = {
+  	let lone = ident
     let checked = user.name.trim()
-
-    checked.length() > 0
+    checked.length() > 0 && test(user)
   }
 
-  let single_tuple = { user, }
-  let pair_tuple = { user.id, user.name }
+  let single_tuple = #( user, )
+  let pair_tuple = #( user.id, user.name )
 
   match user.status {
-    :online if is_valid -> {
+    :online if is_valid => {
       let formatted = user.name.uppercase()
 
-      { :some, val: formatted }
+      #( :some, formatted )
     }
 
-    :idle -> {
+    :idle => {
       io.println("User is away")
 
-      { :none }
+      #( :none, )
     }
 
-    _ -> { :none }
+    _ => #( :none, )
   }
 }

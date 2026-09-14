@@ -186,12 +186,44 @@ impl<'source> Iterator for Lexer<'source> {
             ));
         }
 
+        if self.cursor.has_character('"') {
+            self.cursor.bump_for_character('"');
+            loop {
+                self.cursor.take_while(|char| char != '\\' && char != '"');
+                if let Some(char) = self.cursor.current_character() {
+                    if char == '\\' {
+                        self.cursor.bump_by(2);
+                    } else {
+                        self.cursor.bump_for_character('"');
+                        return Some(self.make_token(self.cursor, SyntaxKind::STRING));
+                    }
+                } else {
+                    return None;
+                }
+            }
+        }
+
         match_strings! {
             self {
                 "->" => ARROW,
                 "=>" => FAT_ARROW,
 
                 "#{" => MAP_BRACE,
+                "#(" => TUPLE_PAREN,
+
+                "<<" => LEFTSHIFT,
+                ">>" => RIGHTSHIFT,
+                ">>>" => URIGHTSHIFT,
+                "<" => LESS_THAN,
+                ">" => GREATER_THAN,
+                "<=" => LESS_THAN_EQ,
+                ">=" => GREATER_THAN_EQ,
+                "==" => EQUALITY,
+                "!=" => NOTEQUAL,
+                "<=>" => SPACESHIP,
+                "|>" => PIPE_OPERATOR,
+                "||" => LOGICAL_OR,
+                "&&" => LOGICAL_AND,
             }
         }
 
@@ -211,6 +243,8 @@ impl<'source> Iterator for Lexer<'source> {
                 '@' => AT,
                 // '#' => HASH,
                 '=' => EQUAL,
+                '^' => CARET,
+                '~' => TILDE,
 
                 '+' => PLUS,
                 '-' => HYPHEN,
@@ -219,6 +253,7 @@ impl<'source> Iterator for Lexer<'source> {
                 '%' => PERCENT,
                 '!' => EXCLAMATION_POINT,
                 '|' => PIPE,
+                '~' => TILDE,
                 '&' => AMPERSAND,
             }
         }

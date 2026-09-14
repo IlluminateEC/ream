@@ -144,10 +144,15 @@ impl<'source> Parser<'source> {
                 .group_as(SyntaxKind::TUPLE_ITEM)
                 .repeated_with_mandatory_trailing_separator_for_one_item(
                     SyntaxKind::COMMA,
-                    SyntaxKind::RBRACE,
+                    SyntaxKind::RPAREN,
                 )
-                .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE)
+                .delimited(SyntaxKind::TUPLE_PAREN, SyntaxKind::RPAREN)
                 .group_as(SyntaxKind::TUPLE);
+
+            let block = expression
+                .clone()
+                .repeated(SyntaxKind::RBRACE)
+                .delimited(SyntaxKind::LBRACE, SyntaxKind::RBRACE);
 
             let map_pair = just(SyntaxKind::IDENTIFIER)
                 .or(expression.clone())
@@ -177,17 +182,187 @@ impl<'source> Parser<'source> {
                 )
                 .group_as(SyntaxKind::MATCH);
 
-            let expr_atom = just(SyntaxKind::IDENTIFIER)
+            let accessor = just(SyntaxKind::IDENTIFIER).repeated_with_separator(SyntaxKind::DOT);
+
+            // expression
+            //     .clone()
+            //     .repeated_with_separator(SyntaxKind::COMMA)
+            //     .delimited(SyntaxKind::LPAREN, SyntaxKind::RPAREN)
+            //     .group_as(SyntaxKind::FN_CALL);
+
+            let expr_atom = accessor
+                .or(just(SyntaxKind::IDENTIFIER))
                 .or(just(SyntaxKind::INTEGER))
                 .or(just(SyntaxKind::FRACTIONAL))
                 .or(just(SyntaxKind::ATOM))
+                .or(just(SyntaxKind::STRING))
                 .or(let_expression)
                 .or(tuple)
                 .or(map)
-                .or(expression.delimited(SyntaxKind::LPAREN, SyntaxKind::RPAREN))
+                .or(block)
+                .or(expression
+                    .clone()
+                    .delimited(SyntaxKind::LPAREN, SyntaxKind::RPAREN))
                 .or(match_expression);
 
-            expr_atom.group_as(SyntaxKind::EXPRESSION)
+            let function_call = just(SyntaxKind::LPAREN)
+                .then(
+                    expr_atom
+                        .clone()
+                        .repeated_with_separator(SyntaxKind::COMMA)
+                        .optional(),
+                )
+                .then(just(SyntaxKind::RPAREN));
+
+            let fn_call_expr = expr_atom.then(function_call.optional());
+
+            let unary_expression = just(SyntaxKind::EXCLAMATION_POINT)
+                .or(just(SyntaxKind::HYPHEN))
+                .or(just(SyntaxKind::TILDE))
+                .then(fn_call_expr.clone())
+                .or(fn_call_expr);
+
+            let multiply_expr = ParserCombinator::recursive(|multiply_expr| {
+                unary_expression
+                    .clone()
+                    .then(just(SyntaxKind::ASTERISK).then(multiply_expr).optional())
+            });
+
+            let division_expr = ParserCombinator::recursive(|division_expr| {
+                multiply_expr
+                    .clone()
+                    .then(just(SyntaxKind::SLASH).then(division_expr).optional())
+            });
+
+            let modulo_expr = ParserCombinator::recursive(|modulo_expr| {
+                division_expr
+                    .clone()
+                    .then(just(SyntaxKind::PERCENT).then(modulo_expr).optional())
+            });
+
+            let add_expr = ParserCombinator::recursive(|add_expr| {
+                modulo_expr
+                    .clone()
+                    .then(just(SyntaxKind::PLUS).then(add_expr).optional())
+            });
+
+            let sub_expr = ParserCombinator::recursive(|sub_expr| {
+                add_expr
+                    .clone()
+                    .then(just(SyntaxKind::HYPHEN).then(sub_expr).optional())
+            });
+
+            let lsh_expr = ParserCombinator::recursive(|lsh_expr| {
+                sub_expr
+                    .clone()
+                    .then(just(SyntaxKind::LEFTSHIFT).then(lsh_expr).optional())
+            });
+
+            let rsh_expr = ParserCombinator::recursive(|rsh_expr| {
+                lsh_expr
+                    .clone()
+                    .then(just(SyntaxKind::RIGHTSHIFT).then(rsh_expr).optional())
+            });
+
+            let ursh_expr = ParserCombinator::recursive(|ursh_expr| {
+                rsh_expr
+                    .clone()
+                    .then(just(SyntaxKind::URIGHTSHIFT).then(ursh_expr).optional())
+            });
+
+            let less_than_expr = ParserCombinator::recursive(|less_than_expr| {
+                ursh_expr
+                    .clone()
+                    .then(just(SyntaxKind::LESS_THAN).then(less_than_expr).optional())
+            });
+
+            let less_than_eq_expr = ParserCombinator::recursive(|less_than_eq_expr| {
+                less_than_expr.clone().then(
+                    just(SyntaxKind::LESS_THAN_EQ)
+                        .then(less_than_eq_expr)
+                        .optional(),
+                )
+            });
+
+            let greater_than_expr = ParserCombinator::recursive(|greater_than_expr| {
+                less_than_eq_expr.clone().then(
+                    just(SyntaxKind::GREATER_THAN)
+                        .then(greater_than_expr)
+                        .optional(),
+                )
+            });
+
+            let greater_than_eq_expr = ParserCombinator::recursive(|greater_than_eq_expr| {
+                greater_than_expr.clone().then(
+                    just(SyntaxKind::GREATER_THAN_EQ)
+                        .then(greater_than_eq_expr)
+                        .optional(),
+                )
+            });
+
+            let equality_expr = ParserCombinator::recursive(|equality_expr| {
+                greater_than_eq_expr
+                    .clone()
+                    .then(just(SyntaxKind::EQUALITY).then(equality_expr).optional())
+            });
+
+            let not_equal_expr = ParserCombinator::recursive(|not_equal_expr| {
+                equality_expr
+                    .clone()
+                    .then(just(SyntaxKind::NOTEQUAL).then(not_equal_expr).optional())
+            });
+
+            let spaceship_expr = ParserCombinator::recursive(|spaceship_expr| {
+                not_equal_expr
+                    .clone()
+                    .then(just(SyntaxKind::SPACESHIP).then(spaceship_expr).optional())
+            });
+
+            let bitwise_and_expr = ParserCombinator::recursive(|bitwise_and_expr| {
+                spaceship_expr.clone().then(
+                    just(SyntaxKind::AMPERSAND)
+                        .then(bitwise_and_expr)
+                        .optional(),
+                )
+            });
+
+            let bitwise_xor_expr = ParserCombinator::recursive(|bitwise_xor_expr| {
+                bitwise_and_expr
+                    .clone()
+                    .then(just(SyntaxKind::CARET).then(bitwise_xor_expr).optional())
+            });
+
+            let bitwise_or_expr = ParserCombinator::recursive(|bitwise_or_expr| {
+                bitwise_xor_expr
+                    .clone()
+                    .then(just(SyntaxKind::PIPE).then(bitwise_or_expr).optional())
+            });
+
+            let logical_and_expr = ParserCombinator::recursive(|logical_and_expr| {
+                bitwise_or_expr.clone().then(
+                    just(SyntaxKind::LOGICAL_AND)
+                        .then(logical_and_expr)
+                        .optional(),
+                )
+            });
+
+            let logical_or_expr = ParserCombinator::recursive(|logical_or_expr| {
+                logical_and_expr.clone().then(
+                    just(SyntaxKind::LOGICAL_OR)
+                        .then(logical_or_expr)
+                        .optional(),
+                )
+            });
+
+            let pipe_expression = ParserCombinator::recursive(|pipe_expression| {
+                logical_or_expr.clone().then(
+                    just(SyntaxKind::PIPE_OPERATOR)
+                        .then(pipe_expression)
+                        .optional(),
+                )
+            });
+
+            pipe_expression.group_as(SyntaxKind::EXPRESSION)
         })
     }
 
@@ -411,7 +586,7 @@ fn parse_and_compare(body: &str, parsed_as: GreenNode) {
 }
 #[cfg(test)]
 fn indentation(depth: usize) -> String {
-    "  ".repeat(depth)
+    "    ".repeat(depth)
 }
 
 #[cfg(test)]
@@ -452,23 +627,161 @@ fn stringify_tree(node: &rowan::GreenNode) -> String {
 }
 
 #[test]
+fn parse_example_fn() {
+    let test = include_str!("TEST.ream");
+    let parse = parse(test);
+    fs::write("test.tree", stringify_tree(&parse.green_node)).unwrap();
+    assert!(false)
+}
+
+#[test]
 fn parse_ambigous_block() {
     let test = "
 fn block() { { blocky } }
-fn tuple() { { tuple, } }
-fn tuple_3() { { tuple, and, friends } }
-fn tuple_3_trailing() { { tuple, and, friends, } }
+fn tuple() { #( tuple, ) }
+fn tuple_3() { #( tuple, and, friends ) }
+fn tuple_3_trailing() { #( tuple, and, friends ) }
 ";
     let parse = parse(test);
-    fs::write("test.tree", stringify_tree(&parse.green_node));
+    // fs::write("test.tree", stringify_tree(&parse.green_node));
     parse_and_compare(
         test,
         make_green_node! {
             ROOT {
-                LET {
-                    LET: "let",
-                    IDENTIFIER: "block_expr",
-                }
+              WHITESPACE: "\n",
+              FN {
+                FN: "fn",
+                WHITESPACE: " ",
+                IDENTIFIER: "block",
+                LPAREN: "(",
+                FN_ARGS {},
+                RPAREN: ")",
+                WHITESPACE: " ",
+                LBRACE: "{",
+                WHITESPACE: " ",
+                EXPRESSION {
+                  LBRACE: "{",
+                  WHITESPACE: " ",
+                  EXPRESSION {
+                    IDENTIFIER: "blocky"
+                  },
+                  WHITESPACE: " ",
+                  RBRACE: "}",
+                },
+                WHITESPACE: " ",
+                RBRACE: "}",
+                },
+              WHITESPACE: "\n",
+              FN {
+                FN: "fn",
+                WHITESPACE: " ",
+                IDENTIFIER: "tuple",
+                LPAREN: "(",
+                FN_ARGS {},
+                RPAREN: ")",
+                WHITESPACE: " ",
+                LBRACE: "{",
+                WHITESPACE: " ",
+                EXPRESSION {
+                  TUPLE {
+                    TUPLE_PAREN: "#(",
+                    WHITESPACE: " ",
+                    TUPLE_ITEM {
+                      EXPRESSION {
+                        IDENTIFIER: "tuple"
+                      }
+                    },
+                    COMMA: ",",
+                    WHITESPACE: " ",
+                    RPAREN: ")",
+                  }
+                },
+                WHITESPACE: " ",
+                RBRACE: "}",
+              },
+              WHITESPACE: "\n",
+              FN {
+                FN: "fn",
+                WHITESPACE: " ",
+                IDENTIFIER: "tuple_3",
+                LPAREN: "(",
+                FN_ARGS {},
+                RPAREN: ")",
+                WHITESPACE: " ",
+                LBRACE: "{",
+                WHITESPACE: " ",
+                EXPRESSION {
+                  TUPLE {
+                    TUPLE_PAREN: "#(",
+                    WHITESPACE: " ",
+                    TUPLE_ITEM {
+                      EXPRESSION {
+                        IDENTIFIER: "tuple"
+                      }
+                    },
+                    COMMA: ",",
+                    WHITESPACE: " ",
+                    TUPLE_ITEM {
+                      EXPRESSION {
+                        IDENTIFIER: "and"
+                      }
+                    },
+                    COMMA: ",",
+                    TUPLE_ITEM {
+                      EXPRESSION {
+                        WHITESPACE: " ",
+                        IDENTIFIER: "friends"
+                      }
+                    },
+                    WHITESPACE: " ",
+                    RPAREN: ")",
+                  },
+                },
+                WHITESPACE: " ",
+                RBRACE: "}",
+              },
+              WHITESPACE: "\n",
+              FN {
+                FN: "fn",
+                WHITESPACE: " ",
+                IDENTIFIER: "tuple_3_trailing",
+                LPAREN: "(",
+                FN_ARGS {},
+                RPAREN: ")",
+                WHITESPACE: " ",
+                LBRACE: "{",
+                WHITESPACE: " ",
+                EXPRESSION {
+                  TUPLE {
+                    TUPLE_PAREN: "#(",
+                    WHITESPACE: " ",
+                    TUPLE_ITEM {
+                      EXPRESSION {
+                        IDENTIFIER: "tuple"
+                      }
+                    },
+                    COMMA: ",",
+                    WHITESPACE: " ",
+                    TUPLE_ITEM {
+                      EXPRESSION {
+                        IDENTIFIER: "and"
+                      }
+                    },
+                    COMMA: ",",
+                    TUPLE_ITEM {
+                      EXPRESSION {
+                        WHITESPACE: " ",
+                        IDENTIFIER: "friends",
+                      }
+                    },
+                    WHITESPACE: " ",
+                    RPAREN: ")",
+                  }
+                },
+                WHITESPACE: " ",
+                RBRACE: "}",
+              },
+              WHITESPACE: "\n",
             }
         },
     );
@@ -513,9 +826,9 @@ import std/fs as fs",
 fn parse_tuples() {
     parse_and_compare(
         "fn tuples() {
-    {}
-    { :3, }
-    { :3, :gwah }
+    #()
+    #( :3, )
+    #( :3, :gwah )
 }",
         make_green_node! {
             ROOT {
@@ -531,14 +844,14 @@ fn parse_tuples() {
                     WHITESPACE: "\n    ",
                     EXPRESSION {
                         TUPLE {
-                            LBRACE: "{",
-                            RBRACE: "}"
+                            TUPLE_PAREN: "#(",
+                            RPAREN: ")"
                         }
                     },
                     WHITESPACE: "\n    ",
                     EXPRESSION {
                         TUPLE {
-                            LBRACE: "{",
+                            TUPLE_PAREN: "#(",
                             WHITESPACE: " ",
                             TUPLE_ITEM {
                                 EXPRESSION {
@@ -547,13 +860,13 @@ fn parse_tuples() {
                             },
                             COMMA: ",",
                             WHITESPACE: " ",
-                            RBRACE: "}",
+                            RPAREN: ")",
                         }
                     },
                     WHITESPACE: "\n    ",
                     EXPRESSION {
                         TUPLE {
-                            LBRACE: "{",
+                            TUPLE_PAREN: "#(",
                             WHITESPACE: " ",
                             TUPLE_ITEM {
                                 EXPRESSION {
@@ -568,7 +881,7 @@ fn parse_tuples() {
                                 }
                             },
                             WHITESPACE: " ",
-                            RBRACE: "}",
+                            RPAREN: ")",
                         }
                     },
                     WHITESPACE: "\n",

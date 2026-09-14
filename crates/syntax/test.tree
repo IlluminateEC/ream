@@ -1,0 +1,424 @@
+ROOT
+    IMPORT
+        IMPORT: "import"
+        WHITESPACE: " "
+        IDENTIFIER: "std"
+        SLASH: "/"
+        IDENTIFIER: "io"
+        WHITESPACE: "\n"
+    IMPORT
+        IMPORT: "import"
+        WHITESPACE: " "
+        IDENTIFIER: "std"
+        SLASH: "/"
+        IDENTIFIER: "string"
+        WHITESPACE: "\n"
+    IMPORT
+        IMPORT: "import"
+        WHITESPACE: " "
+        IDENTIFIER: "std"
+        SLASH: "/"
+        IDENTIFIER: "async"
+        WHITESPACE: " "
+        AS: "as"
+        WHITESPACE: " "
+        IDENTIFIER: "async"
+    WHITESPACE: "\n\n"
+    TYPE
+        TYPE: "type"
+        WHITESPACE: " "
+        IDENTIFIER: "Activity"
+        WHITESPACE: "\n  "
+        EQUAL: "="
+        WHITESPACE: " "
+        TYPE_UNION
+            TYPE_INTERSECTION
+                ATOM: ":online"
+                WHITESPACE: "\n  "
+            PIPE: "|"
+            WHITESPACE: " "
+            TYPE_UNION
+                TYPE_INTERSECTION
+                    ATOM: ":idle"
+                    WHITESPACE: "\n  "
+                PIPE: "|"
+                WHITESPACE: " "
+                TYPE_UNION
+                    TYPE_INTERSECTION
+                        ATOM: ":offline"
+                        WHITESPACE: "\n\n"
+    TYPE
+        TYPE: "type"
+        WHITESPACE: " "
+        IDENTIFIER: "Option"
+        GENERIC_INTRODUCTION
+            LBRACKET: "["
+            TYPE_UNION
+                TYPE_INTERSECTION
+                    IDENTIFIER: "T"
+            RBRACKET: "]"
+        WHITESPACE: "\n  "
+        EQUAL: "="
+        WHITESPACE: " "
+        TYPE_UNION
+            TYPE_INTERSECTION
+                TUPLE
+                    LBRACE: "{"
+                    WHITESPACE: " "
+                    TUPLE_ITEM
+                        TYPE_UNION
+                            TYPE_INTERSECTION
+                                ATOM: ":some"
+                    COMMA: ","
+                    WHITESPACE: " "
+                    TUPLE_ITEM
+                        TYPE_UNION
+                            TYPE_INTERSECTION
+                                IDENTIFIER: "T"
+                                WHITESPACE: " "
+                    RBRACE: "}"
+                WHITESPACE: "\n  "
+            PIPE: "|"
+            WHITESPACE: " "
+            TYPE_UNION
+                TYPE_INTERSECTION
+                    TUPLE
+                        LBRACE: "{"
+                        WHITESPACE: " "
+                        TUPLE_ITEM
+                            TYPE_UNION
+                                TYPE_INTERSECTION
+                                    ATOM: ":none"
+                                    WHITESPACE: " "
+                        RBRACE: "}"
+                    WHITESPACE: "\n\n"
+    TYPE
+        TYPE: "type"
+        WHITESPACE: " "
+        IDENTIFIER: "User"
+        WHITESPACE: " "
+        EQUAL: "="
+        WHITESPACE: " "
+        TYPE_UNION
+            TYPE_INTERSECTION
+                MAP
+                    MAP_BRACE: "#{"
+                    WHITESPACE: "\n  "
+                    MAP_PAIR
+                        IDENTIFIER: "id"
+                        COLON: ":"
+                        WHITESPACE: " "
+                        TYPE_UNION
+                            TYPE_INTERSECTION
+                                IDENTIFIER: "Int"
+                    COMMA: ","
+                    WHITESPACE: "\n  "
+                    MAP_PAIR
+                        IDENTIFIER: "name"
+                        COLON: ":"
+                        WHITESPACE: " "
+                        TYPE_UNION
+                            TYPE_INTERSECTION
+                                IDENTIFIER: "String"
+                    COMMA: ","
+                    WHITESPACE: "\n  "
+                    MAP_PAIR
+                        IDENTIFIER: "status"
+                        COLON: ":"
+                        WHITESPACE: " "
+                        TYPE_UNION
+                            TYPE_INTERSECTION
+                                IDENTIFIER: "Activity"
+                                WHITESPACE: "\n"
+                    RBRACE: "}"
+                WHITESPACE: "\n\n"
+    TRAIT
+        TRAIT: "trait"
+        WHITESPACE: " "
+        IDENTIFIER: "Display"
+        WHITESPACE: " "
+        LBRACE: "{"
+        WHITESPACE: "\n  "
+        FN
+            FN: "fn"
+            WHITESPACE: " "
+            IDENTIFIER: "format"
+            LPAREN: "("
+            FN_ARGS
+                FN_ARG
+                    IDENTIFIER: "self"
+                    COLON: ":"
+                    WHITESPACE: " "
+                    TYPE_UNION
+                        TYPE_INTERSECTION
+                            IDENTIFIER: "Self"
+            RPAREN: ")"
+            WHITESPACE: " "
+            ARROW: "->"
+            WHITESPACE: " "
+            TYPE_UNION
+                TYPE_INTERSECTION
+                    IDENTIFIER: "String"
+                    WHITESPACE: "\n"
+        RBRACE: "}"
+    WHITESPACE: "\n\n"
+    FN
+        FN: "fn"
+        WHITESPACE: " "
+        IDENTIFIER: "process_user"
+        LPAREN: "("
+        FN_ARGS
+            FN_ARG
+                IDENTIFIER: "user"
+                COLON: ":"
+                WHITESPACE: " "
+                TYPE_UNION
+                    TYPE_INTERSECTION
+                        IDENTIFIER: "User"
+            COMMA: ","
+            WHITESPACE: " "
+            FN_ARG
+                IDENTIFIER: "active_only"
+                COLON: ":"
+                WHITESPACE: " "
+                TYPE_UNION
+                    TYPE_INTERSECTION
+                        IDENTIFIER: "Bool"
+        RPAREN: ")"
+        WHITESPACE: " "
+        ARROW: "->"
+        WHITESPACE: " "
+        TYPE_UNION
+            TYPE_INTERSECTION
+                IDENTIFIER: "Option"
+                GENERIC_ARGS
+                    LBRACKET: "["
+                    GENERIC_ARG
+                        TYPE_UNION
+                            TYPE_INTERSECTION
+                                IDENTIFIER: "String"
+                    RBRACKET: "]"
+                WHITESPACE: " "
+        LBRACE: "{"
+        WHITESPACE: "\n  "
+        EXPRESSION
+            LET
+                LET: "let"
+                WHITESPACE: " "
+                PATTERN
+                    IDENTIFIER: "is_valid"
+                WHITESPACE: " "
+                EQUAL: "="
+                WHITESPACE: " "
+                EXPRESSION
+                    LBRACE: "{"
+                    WHITESPACE: "\n  \t"
+                    EXPRESSION
+                        LET
+                            LET: "let"
+                            WHITESPACE: " "
+                            PATTERN
+                                IDENTIFIER: "lone"
+                            WHITESPACE: " "
+                            EQUAL: "="
+                            WHITESPACE: " "
+                            EXPRESSION
+                                IDENTIFIER: "ident"
+                                WHITESPACE: "\n    "
+                    EXPRESSION
+                        LET
+                            LET: "let"
+                            WHITESPACE: " "
+                            PATTERN
+                                IDENTIFIER: "checked"
+                            WHITESPACE: " "
+                            EQUAL: "="
+                            WHITESPACE: " "
+                            EXPRESSION
+                                IDENTIFIER: "user"
+                                DOT: "."
+                                IDENTIFIER: "name"
+                                DOT: "."
+                                IDENTIFIER: "trim"
+                                LPAREN: "("
+                                RPAREN: ")"
+                                WHITESPACE: "\n    "
+                    EXPRESSION
+                        IDENTIFIER: "checked"
+                        DOT: "."
+                        IDENTIFIER: "length"
+                        LPAREN: "("
+                        RPAREN: ")"
+                        WHITESPACE: " "
+                        GREATER_THAN: ">"
+                        WHITESPACE: " "
+                        INTEGER: "0"
+                        WHITESPACE: " "
+                        LOGICAL_AND: "&&"
+                        WHITESPACE: " "
+                        IDENTIFIER: "test"
+                        LPAREN: "("
+                        IDENTIFIER: "user"
+                        RPAREN: ")"
+                        WHITESPACE: "\n  "
+                    RBRACE: "}"
+                    WHITESPACE: "\n\n  "
+        EXPRESSION
+            LET
+                LET: "let"
+                WHITESPACE: " "
+                PATTERN
+                    IDENTIFIER: "single_tuple"
+                WHITESPACE: " "
+                EQUAL: "="
+                WHITESPACE: " "
+                EXPRESSION
+                    TUPLE
+                        TUPLE_PAREN: "#("
+                        WHITESPACE: " "
+                        TUPLE_ITEM
+                            EXPRESSION
+                                IDENTIFIER: "user"
+                        COMMA: ","
+                        WHITESPACE: " "
+                        RPAREN: ")"
+                    WHITESPACE: "\n  "
+        EXPRESSION
+            LET
+                LET: "let"
+                WHITESPACE: " "
+                PATTERN
+                    IDENTIFIER: "pair_tuple"
+                WHITESPACE: " "
+                EQUAL: "="
+                WHITESPACE: " "
+                EXPRESSION
+                    TUPLE
+                        TUPLE_PAREN: "#("
+                        WHITESPACE: " "
+                        TUPLE_ITEM
+                            EXPRESSION
+                                IDENTIFIER: "user"
+                                DOT: "."
+                                IDENTIFIER: "id"
+                        COMMA: ","
+                        WHITESPACE: " "
+                        TUPLE_ITEM
+                            EXPRESSION
+                                IDENTIFIER: "user"
+                                DOT: "."
+                                IDENTIFIER: "name"
+                                WHITESPACE: " "
+                        RPAREN: ")"
+                    WHITESPACE: "\n\n  "
+        EXPRESSION
+            MATCH
+                MATCH: "match"
+                WHITESPACE: " "
+                EXPRESSION
+                    IDENTIFIER: "user"
+                    DOT: "."
+                    IDENTIFIER: "status"
+                    WHITESPACE: " "
+                LBRACE: "{"
+                WHITESPACE: "\n    "
+                MATCH_CLAUSE
+                    PATTERN
+                        ATOM: ":online"
+                    WHITESPACE: " "
+                    IF: "if"
+                    WHITESPACE: " "
+                    EXPRESSION
+                        IDENTIFIER: "is_valid"
+                        WHITESPACE: " "
+                    FAT_ARROW: "=>"
+                    WHITESPACE: " "
+                    EXPRESSION
+                        LBRACE: "{"
+                        WHITESPACE: "\n      "
+                        EXPRESSION
+                            LET
+                                LET: "let"
+                                WHITESPACE: " "
+                                PATTERN
+                                    IDENTIFIER: "formatted"
+                                WHITESPACE: " "
+                                EQUAL: "="
+                                WHITESPACE: " "
+                                EXPRESSION
+                                    IDENTIFIER: "user"
+                                    DOT: "."
+                                    IDENTIFIER: "name"
+                                    DOT: "."
+                                    IDENTIFIER: "uppercase"
+                                    LPAREN: "("
+                                    RPAREN: ")"
+                                    WHITESPACE: "\n\n      "
+                        EXPRESSION
+                            TUPLE
+                                TUPLE_PAREN: "#("
+                                WHITESPACE: " "
+                                TUPLE_ITEM
+                                    EXPRESSION
+                                        ATOM: ":some"
+                                COMMA: ","
+                                WHITESPACE: " "
+                                TUPLE_ITEM
+                                    EXPRESSION
+                                        IDENTIFIER: "formatted"
+                                        WHITESPACE: " "
+                                RPAREN: ")"
+                            WHITESPACE: "\n    "
+                        RBRACE: "}"
+                        WHITESPACE: "\n\n    "
+                MATCH_CLAUSE
+                    PATTERN
+                        ATOM: ":idle"
+                    WHITESPACE: " "
+                    FAT_ARROW: "=>"
+                    WHITESPACE: " "
+                    EXPRESSION
+                        LBRACE: "{"
+                        WHITESPACE: "\n      "
+                        EXPRESSION
+                            IDENTIFIER: "io"
+                            DOT: "."
+                            IDENTIFIER: "println"
+                            LPAREN: "("
+                            STRING: "\"User is away\""
+                            RPAREN: ")"
+                            WHITESPACE: "\n\n      "
+                        EXPRESSION
+                            TUPLE
+                                TUPLE_PAREN: "#("
+                                WHITESPACE: " "
+                                TUPLE_ITEM
+                                    EXPRESSION
+                                        ATOM: ":none"
+                                COMMA: ","
+                                WHITESPACE: " "
+                                RPAREN: ")"
+                            WHITESPACE: "\n    "
+                        RBRACE: "}"
+                        WHITESPACE: "\n\n    "
+                MATCH_CLAUSE
+                    PATTERN
+                        IDENTIFIER: "_"
+                    WHITESPACE: " "
+                    FAT_ARROW: "=>"
+                    WHITESPACE: " "
+                    EXPRESSION
+                        TUPLE
+                            TUPLE_PAREN: "#("
+                            WHITESPACE: " "
+                            TUPLE_ITEM
+                                EXPRESSION
+                                    ATOM: ":none"
+                            COMMA: ","
+                            WHITESPACE: " "
+                            RPAREN: ")"
+                        WHITESPACE: "\n  "
+                RBRACE: "}"
+            WHITESPACE: "\n"
+        RBRACE: "}"
+    WHITESPACE: "\n"

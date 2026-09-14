@@ -20,6 +20,7 @@ pub enum SyntaxKind {
     FRACTIONAL,
     BOOLEAN,
     ERROR,
+    STRING,
 
     // Punctuation
     COLON,
@@ -39,6 +40,7 @@ pub enum SyntaxKind {
     LBRACKET,
     RBRACKET,
     MAP_BRACE,
+    TUPLE_PAREN,
 
     // Operators
     PLUS,
@@ -49,6 +51,21 @@ pub enum SyntaxKind {
     EXCLAMATION_POINT,
     PIPE,
     AMPERSAND,
+    CARET,
+    TILDE,
+    LEFTSHIFT,
+    RIGHTSHIFT,
+    URIGHTSHIFT,
+    LESS_THAN,
+    GREATER_THAN,
+    LESS_THAN_EQ,
+    GREATER_THAN_EQ,
+    LOGICAL_AND,
+    LOGICAL_OR,
+    EQUALITY,
+    NOTEQUAL,
+    SPACESHIP,
+    PIPE_OPERATOR,
 
     // Keywords
     IF,
@@ -73,6 +90,7 @@ pub enum SyntaxKind {
     GENERIC_ARG,
     FN_ARG,
     FN_ARGS,
+    FN_CALL,
     TYPE_UNION,
     TYPE_INTERSECTION,
     MATCH_CLAUSE,
