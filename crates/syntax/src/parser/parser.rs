@@ -1,3 +1,5 @@
+use std::fs;
+
 use rowan::GreenNode;
 use rowan::GreenNodeBuilder;
 
@@ -406,6 +408,70 @@ fn parse_and_compare(body: &str, parsed_as: GreenNode) {
     assert_eq!(parse.errors, Vec::<&str>::new());
 
     compare_green_nodes(parse.green_node, parsed_as);
+}
+#[cfg(test)]
+fn indentation(depth: usize) -> String {
+    "  ".repeat(depth)
+}
+
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+fn stringify_tree_impl(node: &rowan::GreenNodeData, depth: usize, out: &mut String) {
+    out.push_str(
+        format!(
+            "{}{:?}\r\n",
+            indentation(depth),
+            SyntaxKind::from(node.kind())
+        )
+        .as_str(),
+    );
+
+    for child in node.children() {
+        match child {
+            rowan::NodeOrToken::Node(node) => stringify_tree_impl(&node, depth + 1, out),
+            rowan::NodeOrToken::Token(token) => {
+                out.push_str(
+                    format!(
+                        "{}{:?}: {:?}\r\n",
+                        indentation(depth + 1),
+                        SyntaxKind::from(token.kind()),
+                        token.text()
+                    )
+                    .as_str(),
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+fn stringify_tree(node: &rowan::GreenNode) -> String {
+    let mut str = String::with_capacity(1024 * 16);
+    stringify_tree_impl(node, 0, &mut str);
+    str
+}
+
+#[test]
+fn parse_ambigous_block() {
+    let test = "
+fn block() { { blocky } }
+fn tuple() { { tuple, } }
+fn tuple_3() { { tuple, and, friends } }
+fn tuple_3_trailing() { { tuple, and, friends, } }
+";
+    let parse = parse(test);
+    fs::write("test.tree", stringify_tree(&parse.green_node));
+    parse_and_compare(
+        test,
+        make_green_node! {
+            ROOT {
+                LET {
+                    LET: "let",
+                    IDENTIFIER: "block_expr",
+                }
+            }
+        },
+    );
 }
 
 #[test]
