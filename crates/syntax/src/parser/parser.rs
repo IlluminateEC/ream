@@ -7,10 +7,9 @@ use crate::parser::combinator::ParseResult;
 use crate::parser::combinator::ParserCombinator;
 use crate::parser::combinator::ParserState;
 use crate::syntax_kind::SyntaxKind;
-use crate::syntax_kind::SyntaxKind::IDENTIFIER;
 
 #[derive(Debug, Clone)]
-struct Parse {
+pub struct Parse {
     green_node: GreenNode,
     #[allow(unused)]
     errors: Vec<String>,
@@ -329,62 +328,181 @@ impl<'source> Parser<'source> {
     }
 }
 
-#[cfg(test)]
-fn indentation(depth: usize) -> String {
-    "  ".repeat(depth)
+/// Create a [[`rowan::GreenNode`]] from
+macro_rules! make_green_node {
+    // <nothing>
+    // meant to allow KIND {}
+    (@entries $builder:expr, ) => {
+
+    };
+
+    // KIND: "content"
+    (@entries $builder:expr, $kind:ident : $content:expr $(,)?) => {
+        $builder.token((SyntaxKind::$kind).into(), $content);
+    };
+
+    // KIND: "content", ...
+    (@entries $builder:expr, $kind:ident : $content:expr, $($rest:tt)+) => {
+        make_green_node!(@entries $builder, $kind: $content);
+        make_green_node!(@entries $builder, $($rest)+);
+    };
+
+    // KIND { ... }
+    (@entries $builder:expr, $kind:ident { $($children:tt)* } $(,)?) => {
+        $builder.start_node((SyntaxKind::$kind).into());
+        make_green_node!(@entries $builder, $($children)*);
+        $builder.finish_node();
+    };
+
+    // KIND { ... }, ...
+    (@entries $builder:expr, $kind:ident { $($children:tt)* }, $($rest:tt)+) => {
+        $builder.start_node((SyntaxKind::$kind).into());
+        make_green_node!(@entries $builder, $($children)*);
+        $builder.finish_node();
+        make_green_node!(@entries $builder, $($rest)+);
+    };
+
+    ($kind:ident { $($children:tt)* } $(,)?) => {{
+        let mut builder = ::rowan::GreenNodeBuilder::new();
+        builder.start_node((SyntaxKind::$kind).into());
+        make_green_node!(@entries builder, $($children)*);
+        builder.finish_node();
+        builder.finish()
+    }};
 }
 
 #[cfg(test)]
-#[allow(clippy::arithmetic_side_effects)]
-fn print_tree_impl(node: &rowan::GreenNodeData, depth: usize) {
-    println!("{}{:?}", indentation(depth), SyntaxKind::from(node.kind()));
+fn to_syntax_node(green_node: GreenNode) -> crate::lang::SyntaxNode {
+    crate::lang::SyntaxNode::new_root(green_node)
+}
 
-    for child in node.children() {
-        match child {
-            rowan::NodeOrToken::Node(node) => print_tree_impl(&node, depth + 1),
-            rowan::NodeOrToken::Token(token) => {
-                println!(
-                    "{}{:?}: {:?}",
-                    indentation(depth + 1),
-                    SyntaxKind::from(token.kind()),
-                    token.text()
-                );
-            }
-        }
-    }
+#[allow(clippy::panic)]
+#[cfg(test)]
+fn compare_green_nodes(left: GreenNode, right: GreenNode) {
+    let left_stringified = format!("{:#?}", to_syntax_node(left));
+    let right_stringified = format!("{:#?}", to_syntax_node(right));
+
+    similar_asserts::assert_eq!(left_stringified, right_stringified);
 }
 
 #[cfg(test)]
-fn print_tree(node: &rowan::GreenNode) {
-    print_tree_impl(node, 0);
+fn parse_and_compare(body: &str, parsed_as: GreenNode) {
+    let parse = parse(body);
+
+    assert_eq!(parse.errors, Vec::<&str>::new());
+
+    compare_green_nodes(parse.green_node, parsed_as);
 }
 
 #[test]
 fn parse_import() {
-    let parse = parse(
+    parse_and_compare(
         "import std/io as io
 import std/fs as fs",
-    );
-
-    print_tree(&parse.green_node);
-
-    assert_eq!(parse.errors, Vec::<&str>::new());
-
-    assert_eq!(
-        parse.green_node,
-        GreenNode::new(SyntaxKind::ROOT.into(), vec![])
+        make_green_node! {
+            ROOT {
+                IMPORT {
+                    IMPORT: "import",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "std",
+                    SLASH: "/",
+                    IDENTIFIER: "io",
+                    WHITESPACE: " ",
+                    AS: "as",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "io",
+                },
+                WHITESPACE: "\n",
+                IMPORT {
+                    IMPORT: "import",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "std",
+                    SLASH: "/",
+                    IDENTIFIER: "fs",
+                    WHITESPACE: " ",
+                    AS: "as",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "fs",
+                },
+            }
+        },
     );
 }
 
 #[test]
-fn parse_more() {
-    let parse = parse(
-        "import std/io
-import std/string
-import std/async as async
+fn parse_tuples() {
+    parse_and_compare(
+        "fn tuples() {
+    {}
+    { :3, }
+    { :3, :gwah }
+}",
+        make_green_node! {
+            ROOT {
+                FN {
+                    FN: "fn",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "tuples",
+                    LPAREN: "(",
+                    FN_ARGS {},
+                    RPAREN: ")",
+                    WHITESPACE: " ",
+                    LBRACE: "{",
+                    WHITESPACE: "\n    ",
+                    EXPRESSION {
+                        TUPLE {
+                            LBRACE: "{",
+                            RBRACE: "}"
+                        }
+                    },
+                    WHITESPACE: "\n    ",
+                    EXPRESSION {
+                        TUPLE {
+                            LBRACE: "{",
+                            WHITESPACE: " ",
+                            TUPLE_ITEM {
+                                EXPRESSION {
+                                    ATOM: ":3"
+                                }
+                            },
+                            COMMA: ",",
+                            WHITESPACE: " ",
+                            RBRACE: "}",
+                        }
+                    },
+                    WHITESPACE: "\n    ",
+                    EXPRESSION {
+                        TUPLE {
+                            LBRACE: "{",
+                            WHITESPACE: " ",
+                            TUPLE_ITEM {
+                                EXPRESSION {
+                                    ATOM: ":3"
+                                }
+                            },
+                            COMMA: ",",
+                            WHITESPACE: " ",
+                            TUPLE_ITEM {
+                                EXPRESSION {
+                                    ATOM: ":gwah"
+                                }
+                            },
+                            WHITESPACE: " ",
+                            RBRACE: "}",
+                        }
+                    },
+                    WHITESPACE: "\n",
+                    RBRACE: "}"
+                }
+            }
+        },
+    );
+}
 
-
-type Status
+#[test]
+fn parse_types() {
+    parse_and_compare(
+        "type Status
     = :online
     | :idle
     | :offline
@@ -399,24 +517,186 @@ type User = #{
     name: String,
     status: Status,
     display_name: Option[String]
-}
-
-fn awa() {
-    let gwah: { :3 } = { :3, }
-}
-",
+}",
+        make_green_node! {
+            ROOT {
+                TYPE {
+                    TYPE: "type",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "Status",
+                    WHITESPACE: "\n    ",
+                    EQUAL: "=",
+                    WHITESPACE: " ",
+                    TYPE_UNION {
+                        TYPE_INTERSECTION {
+                            ATOM: ":online",
+                            WHITESPACE: "\n    ",
+                        },
+                        PIPE: "|",
+                        WHITESPACE: " ",
+                        TYPE_UNION {
+                            TYPE_INTERSECTION {
+                                ATOM: ":idle",
+                                WHITESPACE: "\n    ",
+                            },
+                            PIPE: "|",
+                            WHITESPACE: " ",
+                            TYPE_UNION {
+                                TYPE_INTERSECTION {
+                                    ATOM: ":offline",
+                                    WHITESPACE: "\n\n",
+                                }
+                            }
+                        }
+                    }
+                },
+                TYPE {
+                    TYPE: "type",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "never",
+                    WHITESPACE: " ",
+                    EQUAL: "=",
+                    WHITESPACE: " ",
+                    TYPE_UNION {
+                        TYPE_INTERSECTION {
+                            IDENTIFIER: "Never",
+                            WHITESPACE: "\n\n"
+                        }
+                    }
+                },
+                TYPE {
+                    TYPE: "type",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "Option",
+                    GENERIC_INTRODUCTION {
+                        LBRACKET: "[",
+                        TYPE_UNION {
+                            TYPE_INTERSECTION {
+                                IDENTIFIER: "T",
+                            }
+                        },
+                        RBRACKET: "]",
+                    },
+                    WHITESPACE: "\n    ",
+                    EQUAL: "=",
+                    WHITESPACE: " ",
+                    TYPE_UNION {
+                        TYPE_INTERSECTION {
+                            TUPLE {
+                                LBRACE: "{",
+                                WHITESPACE: " ",
+                                TUPLE_ITEM {
+                                    TYPE_UNION {
+                                        TYPE_INTERSECTION {
+                                            ATOM: ":some",
+                                        }
+                                    }
+                                },
+                                COMMA: ",",
+                                WHITESPACE: " ",
+                                TUPLE_ITEM {
+                                    TYPE_UNION {
+                                        TYPE_INTERSECTION {
+                                            IDENTIFIER: "T",
+                                            WHITESPACE: " ",
+                                        }
+                                    }
+                                },
+                                RBRACE: "}",
+                            },
+                            WHITESPACE: "\n    ",
+                        },
+                        PIPE: "|",
+                        WHITESPACE: " ",
+                        TYPE_UNION {
+                            TYPE_INTERSECTION {
+                                TUPLE {
+                                    LBRACE: "{",
+                                    WHITESPACE: " ",
+                                    TUPLE_ITEM {
+                                        TYPE_UNION {
+                                            TYPE_INTERSECTION {
+                                                ATOM: ":none",
+                                                WHITESPACE: " "
+                                            }
+                                        }
+                                    },
+                                    RBRACE: "}"
+                                },
+                                WHITESPACE: "\n\n"
+                            }
+                        }
+                    }
+                },
+                TYPE {
+                    TYPE: "type",
+                    WHITESPACE: " ",
+                    IDENTIFIER: "User",
+                    WHITESPACE: " ",
+                    EQUAL: "=",
+                    WHITESPACE: " ",
+                    TYPE_UNION {
+                        TYPE_INTERSECTION {
+                            MAP {
+                                MAP_BRACE: "#{",
+                                WHITESPACE: "\n    ",
+                                MAP_PAIR {
+                                    IDENTIFIER: "name",
+                                    COLON: ":",
+                                    WHITESPACE: " ",
+                                    TYPE_UNION {
+                                        TYPE_INTERSECTION {
+                                            IDENTIFIER: "String"
+                                        }
+                                    }
+                                },
+                                COMMA: ",",
+                                WHITESPACE: "\n    ",
+                                MAP_PAIR {
+                                    IDENTIFIER: "status",
+                                    COLON: ":",
+                                    WHITESPACE: " ",
+                                    TYPE_UNION {
+                                        TYPE_INTERSECTION {
+                                            IDENTIFIER: "Status"
+                                        }
+                                    },
+                                },
+                                COMMA: ",",
+                                WHITESPACE: "\n    ",
+                                MAP_PAIR {
+                                    IDENTIFIER: "display_name",
+                                    COLON: ":",
+                                    WHITESPACE: " ",
+                                    TYPE_UNION {
+                                        TYPE_INTERSECTION {
+                                            IDENTIFIER: "Option",
+                                            GENERIC_ARGS {
+                                                LBRACKET: "[",
+                                                GENERIC_ARG {
+                                                    TYPE_UNION {
+                                                        TYPE_INTERSECTION {
+                                                            IDENTIFIER: "String"
+                                                        }
+                                                    }
+                                                },
+                                                RBRACKET: "]"
+                                            },
+                                            WHITESPACE: "\n"
+                                        }
+                                    }
+                                },
+                                RBRACE: "}"
+                            }
+                        }
+                    }
+                },
+            }
+        },
     );
-    print_tree(&parse.green_node);
-
-    assert_eq!(parse.errors, Vec::<&str>::new());
-
-    assert_eq!(
-        parse.green_node,
-        GreenNode::new(SyntaxKind::ROOT.into(), vec![])
-    );
 }
 
-fn parse(text: &str) -> Parse {
+pub fn parse(text: &str) -> Parse {
     let mut tokens = Lexer::new(text).collect::<Vec<_>>();
 
     tokens.reverse();
