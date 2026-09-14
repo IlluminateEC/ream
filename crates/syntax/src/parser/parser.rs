@@ -331,7 +331,18 @@ impl<'source> Parser<'source> {
     }
 }
 
-/// Create a [[`rowan::GreenNode`]] from
+/// Create a [[`rowan::GreenNode`]] from the syntax of
+/// ```rs
+/// make_green_node! {
+///     ROOT {
+///         FN {
+///             FN: "fn",
+///             WHITESPACE: " ",
+///             ...
+///         }
+///     }
+/// }
+/// ```
 macro_rules! make_green_node {
     // <nothing>
     // meant to allow KIND {}
